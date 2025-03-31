@@ -1,0 +1,169 @@
+def file_processing(csvfile):
+    open_file = open(csvfile, 'r') # Opens the csvfile and reads it.
+    data = {} # Dictionary to store file contents after processing.
+    headers = open_file.readline().replace('\n', '').split(',') # Skips the first line which is the headers.
+    
+    for line in open_file:
+        data_per_line = line.replace('\n','').split(',') # Removes newline character and split the strings into a list of values based on the ',' delimiter.   
+        row_dict = {} # Creates a row object for each row and puts it in an empty dictionary.
+        
+        for i in range(len(headers)): # Finds the range of values from headers.
+            value = data_per_line[i].strip() # Initializing possible numerical characters and removing whitespaces.
+            if (i in range(len(data_per_line))): # Finds the range of values from every line and if the range is the same as the range of headers.
+                row_dict[headers[i]] = data_per_line[i] # To match the data from every line its specific headers.
+                if value.isdigit(): # If the value is a digit.
+                    row_dict[headers[i]] = int(value) # Store it as an integer instead of a string.
+            else:
+                row_dict[headers[i]] = 'null' # If there is an extra value from headers that do not match the range of every line, it is nulled. 
+            
+        data[data_per_line[0]] = row_dict # Sets the first value of headers as the primary key.
+        
+    open_file.close() # Closes the csv file.
+    
+    if len(data) == 0: # If there is no data in data list.
+        print('There is no data in this file.')
+        return None # Exit.
+    else:
+        return data
+    
+
+def t_testscore(data):
+    data_countries = {}  # Dictionary that stores countries and its values.
+    t_scores = {}  # Dictionary to store T-scores for each country.
+    
+    # Find for the respective headers and values.
+    for i in data.keys():
+        countries = data[i]['country'].lower()
+        p2020 = data[i]['profits in 2020(million)']
+        p2021 = data[i]['profits in 2021(million)']
+        organisationID = data[i]['organisation id']
+        
+        # To remove duplicate data.
+        count = 0
+        for j in data.keys():
+            organisationID2 = data[j]['organisation id']
+            if organisationID2 == organisationID:
+                count += 1
+        if count > 1: # If there is more than one same data, skip to the next row.
+            continue
+                
+        # Skip rows where p2020 or p2021 is equal to 0 or empty.
+        if p2020 in (0, '') or p2021 in (0, ''):
+            continue
+        
+        value = data_countries.get(countries, [])
+        value.append((p2020, p2021))
+        data_countries[countries] = value
+    
+    # Calculations start here.
+    for country, profits in data_countries.items():  # For each country and their profits in 2020 and 2021.
+        num_sample_2020 = len(profits)
+        num_sample_2021 = len(profits)
+        
+        if num_sample_2020 == 0 or num_sample_2021 == 0: # Skip the row if there are no samples.
+            continue
+        
+        mean_p2020 = sum(t[0] for t in profits) / num_sample_2020
+        mean_p2021 = sum(t[1] for t in profits) / num_sample_2021
+        
+        # Mean cannot be zero or negative value, so skip to next row.
+        if mean_p2020 <= 0 or mean_p2021 <= 0:
+            continue
+        
+        std1 = (sum((t[0] - mean_p2020) ** 2 for t in profits) / (num_sample_2020 - 1)) ** 0.5
+        std2 = (sum((t[1] - mean_p2021) ** 2 for t in profits) / (num_sample_2021 - 1)) ** 0.5
+        
+        t_score = (mean_p2020 - mean_p2021) / ((std1**2 / num_sample_2020) + (std2**2 / num_sample_2021)) ** 0.5
+        t_scores[country] = round(t_score, 4)
+    
+    return t_scores
+
+def minkowski_distance(data):
+    data_num_median = {}  # Dictionary that stores number of employees and median salary.
+    final_minkowski = {} # Dictionary that stores the minkowski distances for each country.
+    
+    # Find for the respective headers and values.
+    for i in data.keys():
+        country = data[i]['country'].lower()
+        num_employees = data[i]['number of employees']
+        med_salary = data[i]['median Salary']
+        organisationID = data[i]['organisation id']
+        
+        # To remove duplicate data.
+        count = 0
+        for j in data.keys():
+            organisationID2 = data[j]['organisation id']
+            if organisationID2 == organisationID:
+                count += 1
+        if count > 1: # If there is more than one same data, skip to the next row.
+            continue
+        
+        if num_employees in (0, '') or med_salary in (0, ''): # Skip the row if there are zero or empty data.
+            continue
+        
+        values = data_num_median.get(country, [])  
+        values.append((num_employees, med_salary))
+        data_num_median[country] = values
+        
+    # Calculations start here.
+    for country, num_median in data_num_median.items():
+        summation = 0
+        for num_employees, med_salary in num_median: 
+            summation += (abs(num_employees - med_salary) ** 3)
+            
+        final_calc = summation ** (1/3)
+        minkowski_dist = round(final_calc, 4)
+        final_minkowski[country] = minkowski_dist
+    
+    return final_minkowski
+
+def answer2(data):
+    dataset = {} # Dictionary that stores entire output2.
+    
+    for i in data.keys():
+        category = data[i]['category'].lower()
+        number_employees = data[i]['number of employees']
+        
+        if category == '' or number_employees in (0, ''): # Skip the row if there are zero or empty data.
+            continue
+        
+        profit_2020 = data[i]['profits in 2020(million)']
+        profit_2021 = data[i]['profits in 2021(million)']
+        
+        if profit_2020 in (0, '') or profit_2021 in (0, ''): # Skip the row if there are zero or empty data.
+            continue
+        
+        # Calculations start here.
+        change = abs(profit_2020 - profit_2021)
+        final_change = (change/profit_2020) * 100
+        
+        all_data = dataset.get(category, {})
+        all_data[i] = [number_employees, round(final_change, 4), 0]  # Adding a placeholder for rank
+        dataset[category] = all_data
+        
+    for category in dataset:
+        sorted_orgs = sorted(dataset[category].items(), key=lambda x: (x[1][0], x[1][1]), reverse=True)
+        for idx, (org_id, data) in enumerate(sorted_orgs, start=1):
+            data[2] = idx  # Assigning rank
+            dataset[category][org_id] = data
+    return dataset
+
+def main(csvfile):
+    try:
+        data = file_processing(csvfile)
+        if not data: # If there is no data, return empty dictionaries.
+            return {}, {}
+        t_scores = t_testscore(data)
+        final_minkowski = minkowski_distance(data)
+        dataset = answer2(data)
+        result = {}
+
+        for country, value in t_scores.items():
+            result[country] = [value, final_minkowski[country]]
+            
+        return result, dataset
+    
+    except FileNotFoundError: # If a non existent file is input, return empty dictionaries.
+        print('Cannot find file.')
+        return {}, {}
+        
